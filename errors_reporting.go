@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/airbrake/gobrake/v5"
-	"github.com/bugsnag/bugsnag-go"
+	"github.com/bugsnag/bugsnag-go/v2"
 	"github.com/getsentry/sentry-go"
 	"github.com/honeybadger-io/honeybadger-go"
 )
@@ -51,7 +51,7 @@ func initErrorsReporting() {
 
 	if len(conf.AirbrakeProjecKey) > 0 {
 		airbrake = gobrake.NewNotifierWithOptions(&gobrake.NotifierOptions{
-			ProjectId:   conf.AirbrakeProjecId,
+			ProjectId:   int64(conf.AirbrakeProjecID),
 			ProjectKey:  conf.AirbrakeProjecKey,
 			Environment: conf.AirbrakeEnv,
 		})
@@ -61,7 +61,9 @@ func initErrorsReporting() {
 }
 
 func closeErrorsReporting() {
-	airbrake.Close()
+	if airbrake != nil {
+		airbrake.Close()
+	}
 }
 
 func reportError(err error, req *http.Request) {
