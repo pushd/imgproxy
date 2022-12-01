@@ -99,7 +99,11 @@ func (it imageType) Mime() string {
 	return "application/octet-stream"
 }
 
-func (it imageType) ContentDisposition(filename string) string {
+func (it imageType) ContentDisposition(filename string, attach bool) string {
+	if attach {
+		return fmt.Sprintf("attachment; filename=\"%s.%s\"", filename, it)
+	}
+
 	format, ok := contentDispositionsFmt[it]
 	if !ok {
 		return "inline"
@@ -111,15 +115,15 @@ func (it imageType) ContentDisposition(filename string) string {
 func (it imageType) ContentDispositionFromURL(imageURL string) string {
 	url, err := url.Parse(imageURL)
 	if err != nil {
-		return it.ContentDisposition(contentDispositionFilenameFallback)
+		return it.ContentDisposition(contentDispositionFilenameFallback, false)
 	}
 
 	_, filename := filepath.Split(url.Path)
 	if len(filename) == 0 {
-		return it.ContentDisposition(contentDispositionFilenameFallback)
+		return it.ContentDisposition(contentDispositionFilenameFallback, false)
 	}
 
-	return it.ContentDisposition(strings.TrimSuffix(filename, filepath.Ext(filename)))
+	return it.ContentDisposition(strings.TrimSuffix(filename, filepath.Ext(filename)), false)
 }
 
 func (it imageType) SupportsAlpha() bool {

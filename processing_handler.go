@@ -59,7 +59,7 @@ func respondWithImage(ctx context.Context, reqID string, r *http.Request, rw htt
 
 	var contentDisposition string
 	if len(po.Filename) > 0 {
-		contentDisposition = po.Format.ContentDisposition(po.Filename)
+		contentDisposition = po.Format.ContentDisposition(po.Filename, true)
 	} else {
 		contentDisposition = po.Format.ContentDispositionFromURL(getImageURL(ctx))
 	}
@@ -240,5 +240,5 @@ func handleProcessing(reqID string, rw http.ResponseWriter, r *http.Request) {
 	respondWithImage(ctx, reqID, r, rw, imageData)
 
 	// Waiting for S3 Upload to finish.
-	<- uploaded
+	<-uploaded
 }
