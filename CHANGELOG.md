@@ -1,6 +1,36 @@
 # Changelog
 
 ## [Unreleased]
+### Add
+- Add `status_codes_total` counter to Prometheus metrics.
+- Add client-side decryprion support for S3 integration.
+- Add HEIC saving support.
+- (pro) Add the `IMGPROXY_VIDEO_THUMBNAIL_KEYFRAMES` config and the [video_thumbnail_keyframes](https://docs.imgproxy.net/latest/generating_the_url?id=video-thumbnail-keyframes) processing option.
+- (pro) Add the [video_thumbnail_tile](https://docs.imgproxy.net/latest/generating_the_url?id=video-thumbnail-tile) processing option.
+- (pro) Add the `duration` field to the video streams information in the `/info` endpoint response.
+
+### Fix
+- (pro) Fix detection of some videos.
+- (pro) Fix headers and cookies passthrough when the source is a video.
+- (pro) Fix wrong behavior of the `background_alpha` option when the `best` format is used.
+- (docker) Fix saving EXIF strings containing invalid UTF-8 characters.
+- (docker) Fix possible segfaults while processing HEIC/AVIF images.
+- (docker) Fix rendering GIFs embedded in SVGs.
+
+## [3.20.0] - 2023-10-09
+### Add
+- (pro) Add [info options](https://docs.imgproxy.net/latest/getting_the_image_info?id=info-options) support to the `/info` endpoint.
+- (pro) Add video streams info to the `/info` endpoint response.
+- (docker) Add support for TIFFs with 16-bit float samples.
+- (docker) Add support for TIFFs with the old-style JPEG compression.
+
+### Change
+- Limit vector image sizes to `IMGPROXY_MAX_SRC_RESOLUTION`.
+- (pro) Respect image orientation when extracting image dimensions for the `/info` endpoint response.
+- (pro) Respect `IMGPROXY_WORKERS` and `IMGPROXY_REQUESTS_QUEUE_SIZE` configs in the `/info` endpoint.
+- (pro) Collect detailed metrics for the `/info` endpoint.
+- (docker) Invalid UTF-8 strings in image metadata are fixed instead of being ignored.
+
 ### Fix
 - Fix parsing of HEIF files with large boxes.
 - Fix wrong colors when the source image has a linear colorspace.
