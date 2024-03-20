@@ -1,4 +1,4 @@
-ARG BASE_IMAGE_VERSION="v3.7.1"
+ARG BASE_IMAGE_VERSION="v3.8.6"
 
 FROM darthsim/imgproxy-base:${BASE_IMAGE_VERSION} as build
 
@@ -19,10 +19,9 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends \
     bash \
     ca-certificates \
-    libsm6 \
+    libstdc++6 \
     liblzma5 \
     libzstd1 \
-    libpcre3 \
     fontconfig-config \
     media-types \
     libjemalloc2 \
@@ -56,12 +55,20 @@ COPY docker/entrypoint.sh /usr/local/bin/
 COPY --from=build /usr/local/bin/imgproxy /usr/local/bin/
 COPY --from=build /usr/local/lib /usr/local/lib
 
+# AWS Lambda adapter
+COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.8.1 /lambda-adapter /opt/extensions/lambda-adapter
+
 COPY NOTICE /usr/local/share/doc/imgproxy/
 
 ENV VIPS_WARNING=0
 ENV MALLOC_ARENA_MAX=2
 ENV LD_LIBRARY_PATH /usr/local/lib
 ENV IMGPROXY_MALLOC malloc
+ENV AWS_LWA_READINESS_CHECK_PATH /health
+ENV AWS_LWA_INVOKE_MODE response_stream
+
+# Disable SVE on ARM64. SVE is slower than NEON on Amazon Graviton 3
+ENV VIPS_VECTOR=167772160
 
 RUN groupadd -r imgproxy \
   && useradd -r -u 999 -g imgproxy imgproxy \

@@ -11,6 +11,7 @@ import (
 	"errors"
 	"math"
 	"os"
+	"regexp"
 	"runtime"
 	"strings"
 	"sync"
@@ -23,6 +24,7 @@ import (
 	"github.com/imgproxy/imgproxy/v3/ierrors"
 	"github.com/imgproxy/imgproxy/v3/imagedata"
 	"github.com/imgproxy/imgproxy/v3/imagetype"
+	"github.com/imgproxy/imgproxy/v3/imath"
 	"github.com/imgproxy/imgproxy/v3/metrics/cloudwatch"
 	"github.com/imgproxy/imgproxy/v3/metrics/datadog"
 	"github.com/imgproxy/imgproxy/v3/metrics/newrelic"
@@ -49,6 +51,13 @@ var vipsConf struct {
 	AvifSpeed             C.int
 }
 
+var badImageErrRe = []*regexp.Regexp{
+	regexp.MustCompile(`^(\S+)load_buffer: `),
+	regexp.MustCompile(`^VipsJpeg: `),
+	regexp.MustCompile(`^tiff2vips: `),
+	regexp.MustCompile(`^webp2vips: `),
+}
+
 func Init() error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
@@ -63,9 +72,14 @@ func Init() error {
 	C.vips_cache_set_max_mem(0)
 	C.vips_cache_set_max(0)
 
-	C.vips_concurrency_set(1)
-
-	C.vips_vector_set_enabled(1)
+	if lambdaFn := os.Getenv("AWS_LAMBDA_FUNCTION_NAME"); len(lambdaFn) > 0 {
+		// Set vips concurrency level to GOMAXPROCS if we are running in AWS Lambda
+		// since each function processes only one request at a time
+		// so we can use all available CPU cores
+		C.vips_concurrency_set(C.int(imath.Max(1, runtime.GOMAXPROCS(0))))
+	} else {
+		C.vips_concurrency_set(1)
+	}
 
 	if len(os.Getenv("IMGPROXY_VIPS_LEAK_CHECK")) > 0 {
 		C.vips_leak_set(C.gboolean(1))
@@ -122,7 +136,7 @@ func Init() error {
 	otel.AddGaugeFunc(
 		"vips_allocs",
 		"A gauge of the number of active vips allocations.",
-		"By",
+		"1",
 		GetAllocs,
 	)
 
@@ -188,9 +202,12 @@ func Error() error {
 	errstr := strings.TrimSpace(C.GoString(C.vips_error_buffer()))
 	err := ierrors.NewUnexpected(errstr, 1)
 
-	if strings.Contains(errstr, "load_buffer: ") {
-		err.StatusCode = 422
-		err.PublicMessage = "Broken or unsupported image"
+	for _, re := range badImageErrRe {
+		if re.MatchString(errstr) {
+			err.StatusCode = 422
+			err.PublicMessage = "Broken or unsupported image"
+			break
+		}
 	}
 
 	return err
@@ -247,7 +264,7 @@ func SupportsSave(it imagetype.Type) bool {
 		sup = hasOperation("webpsave_buffer")
 	case imagetype.GIF:
 		sup = hasOperation("gifsave_buffer")
-	case imagetype.AVIF:
+	case imagetype.HEIC, imagetype.AVIF:
 		sup = hasOperation("heifsave_buffer")
 	case imagetype.BMP:
 		sup = true
@@ -281,6 +298,14 @@ func (img *Image) Width() int {
 
 func (img *Image) Height() int {
 	return int(img.VipsImage.Ysize)
+}
+
+func (img *Image) Pages() int {
+	p, err := img.GetIntDefault("n-pages", 1)
+	if err != nil {
+		return 1
+	}
+	return p
 }
 
 func (img *Image) Load(imgdata *imagedata.ImageData, shrink int, scale float64, pages int) error {
@@ -378,6 +403,8 @@ func (img *Image) Save(imgtype imagetype.Type, quality int) (*imagedata.ImageDat
 		err = C.vips_webpsave_go(img.VipsImage, &ptr, &imgsize, C.int(quality))
 	case imagetype.GIF:
 		err = C.vips_gifsave_go(img.VipsImage, &ptr, &imgsize)
+	case imagetype.HEIC:
+		err = C.vips_heifsave_go(img.VipsImage, &ptr, &imgsize, C.int(quality))
 	case imagetype.AVIF:
 		err = C.vips_avifsave_go(img.VipsImage, &ptr, &imgsize, C.int(quality), vipsConf.AvifSpeed)
 	case imagetype.TIFF:
@@ -404,6 +431,17 @@ func (img *Image) Clear() {
 	if img.VipsImage != nil {
 		C.clear_image(&img.VipsImage)
 	}
+}
+
+func (img *Image) LineCache(lines int) error {
+	var tmp *C.VipsImage
+
+	if C.vips_linecache_seq(img.VipsImage, &tmp, C.int(lines)) != 0 {
+		return Error()
+	}
+
+	C.swap_and_clear(&img.VipsImage, tmp)
+	return nil
 }
 
 func (img *Image) Arrayjoin(in []*Image) error {
@@ -531,8 +569,8 @@ func (img *Image) SetBlob(name string, value []byte) {
 	C.vips_image_set_blob_copy(img.VipsImage, cachedCString(name), unsafe.Pointer(&value[0]), C.size_t(len(value)))
 }
 
-func (img *Image) RemoveBitsPerSampleHeader() {
-	C.vips_remove_bits_per_sample(img.VipsImage)
+func (img *Image) RemovePaletteBitDepth() {
+	C.vips_remove_palette_bit_depth(img.VipsImage)
 }
 
 func (img *Image) CastUchar() error {
@@ -577,6 +615,10 @@ func (img *Image) Resize(wscale, hscale float64) error {
 
 	if C.vips_resize_go(img.VipsImage, &tmp, C.double(wscale), C.double(hscale)) != 0 {
 		return Error()
+	}
+
+	if wscale < 1.0 || hscale < 1.0 {
+		C.vips_image_set_int(tmp, cachedCString("imgproxy-scaled-down"), 1)
 	}
 
 	C.swap_and_clear(&img.VipsImage, tmp)

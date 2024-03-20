@@ -74,9 +74,10 @@ var (
 	UseLinearColorspace bool
 	DisableShrinkOnLoad bool
 
-	Keys          [][]byte
-	Salts         [][]byte
-	SignatureSize int
+	Keys              [][]byte
+	Salts             [][]byte
+	SignatureSize     int
+	TrustedSignatures []string
 
 	Secret string
 
@@ -99,11 +100,12 @@ var (
 
 	LocalFileSystemRoot string
 
-	S3Enabled       bool
-	S3Region        string
-	S3Endpoint      string
-	S3AssumeRoleArn string
-	S3MultiRegion   bool
+	S3Enabled                 bool
+	S3Region                  string
+	S3Endpoint                string
+	S3AssumeRoleArn           string
+	S3MultiRegion             bool
+	S3DecryptionClientEnabled bool
 
 	GCSEnabled  bool
 	GCSKey      string
@@ -156,17 +158,12 @@ var (
 	PrometheusBind      string
 	PrometheusNamespace string
 
-	OpenTelemetryEndpoint          string
-	OpenTelemetryProtocol          string
-	OpenTelemetryServiceName       string
-	OpenTelemetryEnableMetrics     bool
-	OpenTelemetryServerCert        string
-	OpenTelemetryClientCert        string
-	OpenTelemetryClientKey         string
-	OpenTelemetryGRPCInsecure      bool
-	OpenTelemetryPropagators       []string
-	OpenTelemetryTraceIDGenerator  string
-	OpenTelemetryConnectionTimeout int
+	OpenTelemetryEnable           bool
+	OpenTelemetryEnableMetrics    bool
+	OpenTelemetryServerCert       string
+	OpenTelemetryClientCert       string
+	OpenTelemetryClientKey        string
+	OpenTelemetryTraceIDGenerator string
 
 	CloudWatchServiceName string
 	CloudWatchNamespace   string
@@ -231,7 +228,7 @@ func Reset() {
 
 	PathPrefix = ""
 
-	MaxSrcResolution = 16800000
+	MaxSrcResolution = 50000000
 	MaxSrcFileSize = 0
 	MaxAnimationFrames = 1
 	MaxAnimationFrameResolution = 0
@@ -274,6 +271,7 @@ func Reset() {
 	Keys = make([][]byte, 0)
 	Salts = make([][]byte, 0)
 	SignatureSize = 32
+	TrustedSignatures = make([]string, 0)
 
 	Secret = ""
 
@@ -300,6 +298,7 @@ func Reset() {
 	S3Endpoint = ""
 	S3AssumeRoleArn = ""
 	S3MultiRegion = false
+	S3DecryptionClientEnabled = false
 	GCSEnabled = false
 	GCSKey = ""
 	ABSEnabled = false
@@ -347,17 +346,12 @@ func Reset() {
 	PrometheusBind = ""
 	PrometheusNamespace = ""
 
-	OpenTelemetryEndpoint = ""
-	OpenTelemetryProtocol = "grpc"
-	OpenTelemetryServiceName = "imgproxy"
+	OpenTelemetryEnable = false
 	OpenTelemetryEnableMetrics = false
 	OpenTelemetryServerCert = ""
 	OpenTelemetryClientCert = ""
 	OpenTelemetryClientKey = ""
-	OpenTelemetryGRPCInsecure = true
-	OpenTelemetryPropagators = make([]string, 0)
 	OpenTelemetryTraceIDGenerator = "xray"
-	OpenTelemetryConnectionTimeout = 5
 
 	CloudWatchServiceName = ""
 	CloudWatchNamespace = "imgproxy"
@@ -400,8 +394,15 @@ func Configure() error {
 	configurators.Int(&KeepAliveTimeout, "IMGPROXY_KEEP_ALIVE_TIMEOUT")
 	configurators.Int(&ClientKeepAliveTimeout, "IMGPROXY_CLIENT_KEEP_ALIVE_TIMEOUT")
 	configurators.Int(&DownloadTimeout, "IMGPROXY_DOWNLOAD_TIMEOUT")
-	configurators.Int(&Workers, "IMGPROXY_CONCURRENCY")
-	configurators.Int(&Workers, "IMGPROXY_WORKERS")
+
+	if lambdaFn := os.Getenv("AWS_LAMBDA_FUNCTION_NAME"); len(lambdaFn) > 0 {
+		Workers = 1
+		log.Info("AWS Lambda environment detected, setting workers to 1")
+	} else {
+		configurators.Int(&Workers, "IMGPROXY_CONCURRENCY")
+		configurators.Int(&Workers, "IMGPROXY_WORKERS")
+	}
+
 	configurators.Int(&RequestsQueueSize, "IMGPROXY_REQUESTS_QUEUE_SIZE")
 	configurators.Int(&MaxClients, "IMGPROXY_MAX_CLIENTS")
 
@@ -474,6 +475,7 @@ func Configure() error {
 		return err
 	}
 	configurators.Int(&SignatureSize, "IMGPROXY_SIGNATURE_SIZE")
+	configurators.StringSlice(&TrustedSignatures, "IMGPROXY_TRUSTED_SIGNATURES")
 
 	if err := configurators.HexSliceFile(&Keys, keyPath); err != nil {
 		return err
@@ -501,6 +503,7 @@ func Configure() error {
 	configurators.String(&S3Endpoint, "IMGPROXY_S3_ENDPOINT")
 	configurators.String(&S3AssumeRoleArn, "IMGPROXY_S3_ASSUME_ROLE_ARN")
 	configurators.Bool(&S3MultiRegion, "IMGPROXY_S3_MULTI_REGION")
+	configurators.Bool(&S3DecryptionClientEnabled, "IMGPROXY_S3_USE_DECRYPTION_CLIENT")
 
 	configurators.Bool(&GCSEnabled, "IMGPROXY_USE_GCS")
 	configurators.String(&GCSKey, "IMGPROXY_GCS_KEY")
@@ -557,17 +560,12 @@ func Configure() error {
 	configurators.String(&PrometheusBind, "IMGPROXY_PROMETHEUS_BIND")
 	configurators.String(&PrometheusNamespace, "IMGPROXY_PROMETHEUS_NAMESPACE")
 
-	configurators.String(&OpenTelemetryEndpoint, "IMGPROXY_OPEN_TELEMETRY_ENDPOINT")
-	configurators.String(&OpenTelemetryProtocol, "IMGPROXY_OPEN_TELEMETRY_PROTOCOL")
-	configurators.String(&OpenTelemetryServiceName, "IMGPROXY_OPEN_TELEMETRY_SERVICE_NAME")
+	configurators.Bool(&OpenTelemetryEnable, "IMGPROXY_OPEN_TELEMETRY_ENABLE")
 	configurators.Bool(&OpenTelemetryEnableMetrics, "IMGPROXY_OPEN_TELEMETRY_ENABLE_METRICS")
 	configurators.String(&OpenTelemetryServerCert, "IMGPROXY_OPEN_TELEMETRY_SERVER_CERT")
 	configurators.String(&OpenTelemetryClientCert, "IMGPROXY_OPEN_TELEMETRY_CLIENT_CERT")
 	configurators.String(&OpenTelemetryClientKey, "IMGPROXY_OPEN_TELEMETRY_CLIENT_KEY")
-	configurators.Bool(&OpenTelemetryGRPCInsecure, "IMGPROXY_OPEN_TELEMETRY_GRPC_INSECURE")
-	configurators.StringSlice(&OpenTelemetryPropagators, "IMGPROXY_OPEN_TELEMETRY_PROPAGATORS")
 	configurators.String(&OpenTelemetryTraceIDGenerator, "IMGPROXY_OPEN_TELEMETRY_TRACE_ID_GENERATOR")
-	configurators.Int(&OpenTelemetryConnectionTimeout, "IMGPROXY_OPEN_TELEMETRY_CONNECTION_TIMEOUT")
 
 	configurators.String(&CloudWatchServiceName, "IMGPROXY_CLOUD_WATCH_SERVICE_NAME")
 	configurators.String(&CloudWatchNamespace, "IMGPROXY_CLOUD_WATCH_NAMESPACE")
@@ -638,8 +636,8 @@ func Configure() error {
 		return fmt.Errorf("Max clients number should be greater than or equal 0, now - %d\n", MaxClients)
 	}
 
-	if TTL <= 0 {
-		return fmt.Errorf("TTL should be greater than 0, now - %d\n", TTL)
+	if TTL < 0 {
+		return fmt.Errorf("TTL should be greater than or equal to 0, now - %d\n", TTL)
 	}
 
 	if MaxSrcResolution <= 0 {
@@ -707,16 +705,16 @@ func Configure() error {
 		return errors.New("Watermark opacity should be less than or equal to 1")
 	}
 
+	if FallbackImageTTL < 0 {
+		return fmt.Errorf("Fallback image TTL should be greater than or equal to 0, now - %d\n", TTL)
+	}
+
 	if FallbackImageHTTPCode < 100 || FallbackImageHTTPCode > 599 {
 		return errors.New("Fallback image HTTP code should be between 100 and 599")
 	}
 
 	if len(PrometheusBind) > 0 && PrometheusBind == Bind {
 		return errors.New("Can't use the same binding for the main server and Prometheus")
-	}
-
-	if OpenTelemetryConnectionTimeout < 1 {
-		return errors.New("OpenTelemetry connection timeout should be greater than zero")
 	}
 
 	if FreeMemoryInterval <= 0 {
