@@ -368,7 +368,6 @@ vips_resize_go(VipsImage *in, VipsImage **out, double wscale, double hscale)
 }
 
 int
-<<<<<<< HEAD
 vips_resize_go_old(VipsImage *in, VipsImage **out, double scale) {
   return vips_resize(in, out, scale, NULL);
 }
@@ -756,7 +755,6 @@ vips_embed_go(VipsImage *in, VipsImage **out, int x, int y, int width, int heigh
 }
 
 int
-<<<<<<< HEAD
 vips_embed_image_go(VipsImage *in, VipsImage *sub, VipsImage **out, int x, int y, gboolean expand) {
   int ret = vips_insert(in, sub, out, x, y, "expand", expand, NULL);
   return ret;
