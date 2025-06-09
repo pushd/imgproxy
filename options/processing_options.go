@@ -84,10 +84,23 @@ type DitherOptions struct {
 	OptionsSet02      bool
 	OptionsSet03      bool
 	OptionsSet04      bool
+	OptionsSet05      bool
 	OptionsSetCam16   bool
 	OptionsSetHpminde bool
 	OptionsSetScam    bool
 	OptionsSetVendor  bool
+	MeasuredPalette   DitherPalette
+}
+
+type DitherPalette struct {
+	Red     vips.Color
+	Green   vips.Color
+	Blue    vips.Color
+	Yellow  vips.Color
+	Black   vips.Color
+	White   vips.Color
+	Magenta vips.Color
+	Cyan    vips.Color
 }
 
 type WatermarkOptions struct {
@@ -746,7 +759,7 @@ func applyDitherOption(po *ProcessingOptions, args []string) error {
 	}
 
 	if len(args) > 1 { // additional arguments are optional
-		for _, arg := range args[1:] {
+		for idx, arg := range args[1:] {
 			switch arg {
 			case "co":
 				po.Dither.Contrast = true
@@ -782,6 +795,16 @@ func applyDitherOption(po *ProcessingOptions, args []string) error {
 				po.Dither.OptionsSet03 = true // shorthand for a set of options starting with the 20240702 release
 			case "opts04":
 				po.Dither.OptionsSet04 = true // shorthand for a set of options starting with the 20240809 release
+			case "opts05":
+				po.Dither.OptionsSet05 = true // shorthand for a set of options starting with the 20250514 release
+				// parse the display's measured palette e.x.
+				// opts05:r:ff0000:g:00ff00:bl:0000ff:y:ffff00:bk:000000:w:ffffff
+				if err := parseDitherPalette(&po.Dither.MeasuredPalette, args[idx+1:]); err != nil {
+					return err
+				}
+				// magenta and cyan 'extra' palette colors are fixed for opts05
+				po.Dither.MeasuredPalette.Magenta = vips.Color{R: 181, G: 5, B: 210}
+				po.Dither.MeasuredPalette.Cyan = vips.Color{R: 5, G: 170, B: 177}
 			case "optscam16":
 				po.Dither.OptionsSetCam16 = true
 			case "optshpminde":
@@ -795,6 +818,36 @@ func applyDitherOption(po *ProcessingOptions, args []string) error {
 					return err
 				}
 			}
+		}
+	}
+	return nil
+}
+
+func parseDitherPalette(d *DitherPalette, args []string) error {
+	if len(args) < 12 { // 6 keys + 6 values
+		return fmt.Errorf("Invalid dither palette arguments (expected 12): %v", args)
+	}
+	colorArgs := args[:12]
+	for i := 0; i < len(colorArgs); i += 2 {
+		c, err := vips.ColorFromHex(args[i+1])
+		if err != nil {
+			return fmt.Errorf("Invalid dither palette: %v", err)
+		}
+		switch args[i] {
+		case "r":
+			d.Red = c
+		case "g":
+			d.Green = c
+		case "bl":
+			d.Blue = c
+		case "y":
+			d.Yellow = c
+		case "bk":
+			d.Black = c
+		case "w":
+			d.White = c
+		default:
+			return fmt.Errorf("Invalid dither palette key: %s", args[i])
 		}
 	}
 	return nil
