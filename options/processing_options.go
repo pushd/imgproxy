@@ -1247,6 +1247,16 @@ func applyURLOptions(po *ProcessingOptions, options urlOptions) error {
 		}
 	}
 
+	// If dithering is enabled, apply these options to ensure the resulting image exactly matches the expected size.
+	if po.Dither.Type != DitherNone {
+		po.ResizingType = ResizeFit
+		po.Flatten = true
+		po.Background.Color = vips.Color{R: 0, G: 0, B: 0} // default black background
+		po.Enlarge = true
+		po.Extend.Enabled = true
+		po.Padding.Enabled = false
+	}
+
 	return nil
 }
 
