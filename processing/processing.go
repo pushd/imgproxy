@@ -29,6 +29,7 @@ var mainPipeline = pipeline{
 	rotateAndFlip,
 	cropToResult,
 	applyFilters,
+	dither,
 	extend,
 	extendAspectRatio,
 	padding,
@@ -36,7 +37,6 @@ var mainPipeline = pipeline{
 	flatten,
 	watermark,
 	exportColorProfile,
-	dither,
 	stripMetadata,
 }
 
