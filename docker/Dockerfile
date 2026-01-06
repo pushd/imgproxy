@@ -11,7 +11,8 @@ RUN docker/build.sh
 # ==================================================================================================
 # Final image
 
-FROM debian:bookworm-slim
+# should match imgproxy-base image base w/ proper python version
+FROM python:3.11-slim-bullseye
 LABEL maintainer="Sergey Alexandrovich <darthsim@gmail.com>"
 
 RUN apt-get update \
