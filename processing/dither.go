@@ -19,16 +19,28 @@ func dither(pctx *pipelineContext, img *vips.Image, po *options.ProcessingOption
 		return nil
 	}
 
-	// Resize image to desired dimensions, retaining aspect, before dithering
-	// Usually smaller images are returned to the frame for upscaling, but in the dithering case we want to
-	// dither the image only after it's been resized to be bounded within the [po.Width X po.Height] box
-	// we trust that anything rendering to the frame itself will have the proper aspect defined
-
+	// If the frame scales the image itself after dithering the artifacts will look terrible.
+	// For ResizeFit we may add black bars around the dithered image further down
+	// For ResizeFill we Mimic the CENTER_CROP resizing behavior prior to dithering
+	// https://developer.android.com/reference/android/widget/ImageView.ScaleType#CENTER_CROP
 	widthScale := float64(po.Width) / float64(img.Width())
 	heightScale := float64(po.Height) / float64(img.Height())
-	minScale := math.Min(widthScale, heightScale)
-	if err := img.Resize(minScale, minScale); err != nil {
+	scaleSize := math.Min(widthScale, heightScale) // ResizeFit
+
+	if po.ResizingType == options.ResizeFill {
+		scaleSize = math.Max(widthScale, heightScale)
+	}
+
+	// in either case we want to scale for dithering
+	if err := img.Resize(scaleSize, scaleSize); err != nil {
 		return err
+	}
+
+	if po.ResizingType == options.ResizeFill {
+		gravity := options.GravityOptions{Type: options.GravityCenter}
+		if err := cropImage(img, po.Width, po.Height, &gravity, 1.0); err != nil {
+			return err
+		}
 	}
 
 	// Get a snapshot of current image
