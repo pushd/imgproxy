@@ -1,6 +1,6 @@
-ARG BASE_IMAGE_VERSION="v3.11.0"
+ARG BASE_IMAGE_VERSION="v3.14.0"
 
-FROM darthsim/imgproxy-base:${BASE_IMAGE_VERSION} as build
+FROM ghcr.io/imgproxy/imgproxy-base:${BASE_IMAGE_VERSION} AS build
 
 ARG BUILDPLATFORM
 ARG TARGETPLATFORM
@@ -11,7 +11,8 @@ RUN docker/build.sh
 # ==================================================================================================
 # Final image
 
-FROM debian:bookworm-slim
+# should match imgproxy-base image base w/ proper python version
+FROM python:3.11-slim-bullseye
 LABEL maintainer="Sergey Alexandrovich <darthsim@gmail.com>"
 
 RUN apt-get update \
@@ -75,8 +76,8 @@ COPY NOTICE /usr/local/share/doc/imgproxy/
 
 ENV VIPS_WARNING=0
 ENV MALLOC_ARENA_MAX=2
-ENV FONTCONFIG_PATH /etc/fonts
-ENV IMGPROXY_MALLOC malloc
+ENV FONTCONFIG_PATH=/etc/fonts
+ENV IMGPROXY_MALLOC=malloc
 
 RUN groupadd -r imgproxy \
   && useradd -r -u 999 -g imgproxy imgproxy \
