@@ -50,7 +50,7 @@ func fileNameToParams(requestURI string, needsSig bool) string {
 
 	if imgParams["f"] != "heic" {
 		// we either render a heic if specified or jpg as default.
-    	imgParams["f"] = "jpg"
+		imgParams["f"] = "jpg"
 	}
 	urlParam := fmt.Sprintf("/plain/s3://%s/%s", s3Path, splitFilename[len(splitFilename)-1])
 
