@@ -8,6 +8,34 @@ ARG TARGETPLATFORM
 COPY . .
 RUN docker/build.sh
 
+#===== proper libheif ======
+
+# Install x265 build dependency
+RUN apt-get update && apt-get install -y \
+    ninja-build cmake git curl libx265-dev nasm libde265-dev
+
+# Rebuild libheif with x265 instead of kvazaar
+RUN git clone --depth 1 --branch v1.21.2 https://github.com/strukturag/libheif.git /tmp/libheif \
+    && cd /tmp/libheif \
+    && curl -Ls https://github.com/DarthSim/libheif/commit/d63ec62d93ab1420c8cf76378af2a806aeb5292d.patch | git apply \
+    && mkdir _build && cd _build \
+    && CFLAGS="-O3" CXXFLAGS="-O3" cmake \
+        -G"Ninja" \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=/opt/imgproxy \
+        --preset=release-noplugins \
+        -DBUILD_SHARED_LIBS=1 \
+        -DWITH_EXAMPLES=0 \
+        -DWITH_KVAZAAR=0 \
+        -DWITH_X265=1 \
+        -DWITH_DAV1D=1 \
+        -DWITH_DAV1D_PLUGIN=0 \
+        -DWITH_AOM_DECODER=0 \
+        -DWITH_AOM_ENCODER=0 \
+        .. \
+    && ninja install/strip \
+    && rm -rf /tmp/libheif
+
 # ==================================================================================================
 # Final image
 
