@@ -51,6 +51,8 @@ var (
 	PngQuantize           bool
 	PngQuantizationColors int
 	AvifSpeed             int
+	HeicTileWidth         int
+	HeicTileHeight        int
 	Quality               int
 	FormatQuality         map[imagetype.Type]int
 	StripMetadata         bool
@@ -244,6 +246,8 @@ func Reset() {
 	PngQuantize = false
 	PngQuantizationColors = 256
 	AvifSpeed = 9
+	HeicTileWidth = 0
+	HeicTileHeight = 0
 	Quality = 80
 	FormatQuality = map[imagetype.Type]int{imagetype.AVIF: 65}
 	StripMetadata = true
@@ -436,6 +440,8 @@ func Configure() error {
 	configurators.Bool(&PngQuantize, "IMGPROXY_PNG_QUANTIZE")
 	configurators.Int(&PngQuantizationColors, "IMGPROXY_PNG_QUANTIZATION_COLORS")
 	configurators.Int(&AvifSpeed, "IMGPROXY_AVIF_SPEED")
+	configurators.Int(&HeicTileWidth, "IMGPROXY_HEIC_TILE_WIDTH")
+	configurators.Int(&HeicTileHeight, "IMGPROXY_HEIC_TILE_HEIGHT")
 	configurators.Int(&Quality, "IMGPROXY_QUALITY")
 	if err := configurators.ImageTypesQuality(FormatQuality, "IMGPROXY_FORMAT_QUALITY"); err != nil {
 		return err
@@ -664,6 +670,13 @@ func Configure() error {
 		return fmt.Errorf("Avif speed should be greater than 0, now - %d\n", AvifSpeed)
 	} else if AvifSpeed > 9 {
 		return fmt.Errorf("Avif speed can't be greater than 9, now - %d\n", AvifSpeed)
+	}
+
+	if HeicTileWidth < 0 {
+		return fmt.Errorf("HEIC tile width should be 0 (disabled) or a positive value, now - %d\n", HeicTileWidth)
+	}
+	if HeicTileHeight < 0 {
+		return fmt.Errorf("HEIC tile height should be 0 (disabled) or a positive value, now - %d\n", HeicTileHeight)
 	}
 
 	if Quality <= 0 {

@@ -72,10 +72,9 @@ RUN apt-get update \
       curl \
       zstd \
       build-essential \
-      cmake \
-      git
+      cmake
 
-RUN pip3 install scikit-image==0.22.0 scipy==1.11.4 opencv-python numpy Pillow dlib==19.24.4 --break-system-packages
+RUN CMAKE_BUILD_PARALLEL_LEVEL=1 pip3 install scikit-image==0.22.0 scipy==1.11.4 opencv-python numpy Pillow dlib==19.24.4 --break-system-packages
 
 # https://pushd.slack.com/archives/C07A4MNKDE2/p1755641040891479?thread_ts=1755542357.600459&cid=C07A4MNKDE2
 RUN pip3 install git+https://github.com/pushd/pyamg.git@v5.2.0_with_pinned_scm --break-system-packages

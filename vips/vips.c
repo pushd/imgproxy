@@ -15,6 +15,9 @@
 #define VIPS_SUPPORT_GIFSAVE \
   (VIPS_MAJOR_VERSION > 8 || (VIPS_MAJOR_VERSION == 8 && VIPS_MINOR_VERSION >= 12))
 
+#define VIPS_SUPPORT_HEIF_TILE \
+  (VIPS_MAJOR_VERSION > 8 || (VIPS_MAJOR_VERSION == 8 && VIPS_MINOR_VERSION >= 13))
+
 #define VIPS_GIF_RESOLUTION_LIMITED \
   (VIPS_MAJOR_VERSION == 8 && VIPS_MINOR_VERSION <= 12)
 
@@ -919,8 +922,19 @@ vips_tiffsave_go(VipsImage *in, void **buf, size_t *len, int quality) {
 }
 
 int
-vips_heifsave_go(VipsImage *in, void **buf, size_t *len, int quality)
+vips_heifsave_go(VipsImage *in, void **buf, size_t *len, int quality, int tile_width, int tile_height)
 {
+#if VIPS_SUPPORT_HEIF_TILE
+  if (tile_width > 0 && tile_height > 0) {
+    return vips_heifsave_buffer(
+        in, buf, len,
+        "Q", quality,
+        "compression", VIPS_FOREIGN_HEIF_COMPRESSION_HEVC,
+        "tile_width", tile_width,
+        "tile_height", tile_height,
+        NULL);
+  }
+#endif
   return vips_heifsave_buffer(
       in, buf, len,
       "Q", quality,

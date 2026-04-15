@@ -47,6 +47,8 @@ var vipsConf struct {
 	PngQuantize           C.int
 	PngQuantizationColors C.int
 	AvifSpeed             C.int
+	HeicTileWidth         C.int
+	HeicTileHeight        C.int
 }
 
 func Init() error {
@@ -82,6 +84,8 @@ func Init() error {
 	vipsConf.PngQuantize = gbool(config.PngQuantize)
 	vipsConf.PngQuantizationColors = C.int(config.PngQuantizationColors)
 	vipsConf.AvifSpeed = C.int(config.AvifSpeed)
+	vipsConf.HeicTileWidth = C.int(config.HeicTileWidth)
+	vipsConf.HeicTileHeight = C.int(config.HeicTileHeight)
 
 	prometheus.AddGaugeFunc(
 		"vips_memory_bytes",
@@ -405,7 +409,7 @@ func (img *Image) Save(imgtype imagetype.Type, quality int) (*imagedata.ImageDat
 	case imagetype.GIF:
 		err = C.vips_gifsave_go(img.VipsImage, &ptr, &imgsize)
 	case imagetype.HEIC:
-		err = C.vips_heifsave_go(img.VipsImage, &ptr, &imgsize, C.int(quality))
+		err = C.vips_heifsave_go(img.VipsImage, &ptr, &imgsize, C.int(quality), vipsConf.HeicTileWidth, vipsConf.HeicTileHeight)
 	case imagetype.AVIF:
 		err = C.vips_avifsave_go(img.VipsImage, &ptr, &imgsize, C.int(quality), vipsConf.AvifSpeed)
 	case imagetype.TIFF:
