@@ -438,7 +438,7 @@ func handleProcessing(reqID string, rw http.ResponseWriter, r *http.Request) {
 		// copy imgData for thread safety
 		imgDataForS3 := make([]byte, len(resultData.Data))
 		copy(imgDataForS3, resultData.Data)
-		uploaded = beforeResponse(imgDataForS3, cachePath)
+		uploaded = beforeResponse(imgDataForS3, cachePath, resultData.Type.Mime())
 	}
 
 	defer resultData.Close()
