@@ -117,9 +117,21 @@ func createMD5Hash(data []byte) string {
 	return base64.StdEncoding.EncodeToString(hash.Sum(nil))
 }
 
+func contentTypeFromData(data []byte) string {
+	if len(data) >= 3 && data[0] == 0xFF && data[1] == 0xD8 && data[2] == 0xFF {
+		return "image/jpeg"
+	}
+	if len(data) >= 12 && string(data[4:8]) == "ftyp" {
+		// this would also include avif but imgproxy is set to only render heic or jpeg so this is ok.
+		return "image/heic"
+	}
+	return "image/jpeg"
+}
+
 func uploadToS3(data []byte, s3Key string, uploaded chan bool) {
 	md5Hash := createMD5Hash(data)
-	log.Infof("Uploading rendered image to: %s with md5 hash: %s", s3Key, md5Hash)
+	contentType := contentTypeFromData(data)
+	log.Infof("Uploading rendered image to: %s with md5 hash: %s content-type: %s", s3Key, md5Hash, contentType)
 	awsSession, err := session.NewSession()
 	if err != nil {
 		log.Error(err.Error())
@@ -130,7 +142,7 @@ func uploadToS3(data []byte, s3Key string, uploaded chan bool) {
 		Body:        aws.ReadSeekCloser(bytes.NewReader(data)),
 		Bucket:      aws.String(s3RenderBucket),
 		Key:         aws.String(s3Key),
-		ContentType: aws.String("image/jpeg"),
+		ContentType: aws.String(contentType),
 		ContentMD5:  aws.String(md5Hash),
 	}
 
