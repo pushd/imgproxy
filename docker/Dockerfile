@@ -12,17 +12,21 @@ RUN docker/build.sh
 
 # Install x265 build dependency
 RUN apt-get update && apt-get install -y \
-    ninja-build cmake git curl libx265-dev nasm libde265-dev
+    ninja-build cmake git curl libx265-dev nasm pkg-config
 
-# Rebuild libheif with x265 instead of kvazaar
+# Rebuild libheif with x265 instead of kvazaar. RPATH points to /opt/imgproxy/lib so libheif
+# loads the base image's libde265 1.0.16 instead of bullseye's 1.0.11 (which miscolors 10-bit).
 RUN git clone --depth 1 --branch v1.21.2 https://github.com/strukturag/libheif.git /tmp/libheif \
     && cd /tmp/libheif \
     && curl -Ls https://github.com/DarthSim/libheif/commit/d63ec62d93ab1420c8cf76378af2a806aeb5292d.patch | git apply \
     && mkdir _build && cd _build \
-    && CFLAGS="-O3" CXXFLAGS="-O3" cmake \
+    && PKG_CONFIG_PATH=/opt/imgproxy/lib/pkgconfig CFLAGS="-O3" CXXFLAGS="-O3" cmake \
         -G"Ninja" \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX=/opt/imgproxy \
+        -DCMAKE_PREFIX_PATH=/opt/imgproxy \
+        -DCMAKE_INSTALL_RPATH=/opt/imgproxy/lib \
+        -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON \
         --preset=release-noplugins \
         -DBUILD_SHARED_LIBS=1 \
         -DWITH_EXAMPLES=0 \
