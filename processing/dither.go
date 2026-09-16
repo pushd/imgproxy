@@ -182,14 +182,6 @@ func shellOutVendor(inFile string, po *options.ProcessingOptions) error {
 	return nil
 }
 
-// The drive values the 10" panel matches the rendered image against, one per ink
-// and index aligned to the nine ink dither palette once its base pigments sit in
-// canonical slots. Without this the tool renders --image-out against its six
-// color default, overflows it and falls back to the measured inks, which the
-// frame has nothing to match. Values come from eink-sop-tool's target chart.
-const opts07OutPalette = "rgb:r:255:0:0:g:0:128:0:bl:0:0:255:y:255:255:0:" +
-	"w:255:255:255:bk:0:0:0:or:255:165:0:y2:128:128:0:br:165:42:42"
-
 func shellOutDither(inFile string, po *options.ProcessingOptions) error {
 	outFile := fmt.Sprintf("%s-dithered-tmp.png", inFile)
 	proofFile := fmt.Sprintf("%s-dithered-proof-tmp.png", inFile)
@@ -291,7 +283,9 @@ func shellOutDither(inFile string, po *options.ProcessingOptions) error {
 		cmdArgs = append(cmdArgs, "--pal-auto-expand", "2.0")
 		cmdArgs = append(cmdArgs, "--inflate-color-space", "jzazbz")
 		cmdArgs = append(cmdArgs, "--pal-str", po.Dither.MeasuredPalette)
-	case po.Dither.OptionsSet06:
+	// opts07 is opts06 over a nine ink palette: the dither tool reads the extra
+	// inks straight off --pal-str, so the option set is the same.
+	case po.Dither.OptionsSet06, po.Dither.OptionsSet07:
 		cmdArgs = append(cmdArgs, "--jzazbz")
 		cmdArgs = append(cmdArgs, "--hull-project")
 		cmdArgs = append(cmdArgs, "--chroma-lightness")
@@ -303,25 +297,6 @@ func shellOutDither(inFile string, po *options.ProcessingOptions) error {
 		cmdArgs = append(cmdArgs, "--pal-auto-expand", "2.0")
 		cmdArgs = append(cmdArgs, "--inflate-color-space", "jzazbz")
 		cmdArgs = append(cmdArgs, "--pal-str", po.Dither.MeasuredPalette)
-		cmdArgs = append(cmdArgs, "--swap-yellow-prob", fmt.Sprintf("%0.2f", po.Dither.SwapYellowProb))
-	case po.Dither.OptionsSet07:
-		// opts06's treatment over the nine measured inks, all of which are dithered
-		cmdArgs = append(cmdArgs, "--jzazbz")
-		cmdArgs = append(cmdArgs, "--hull-project")
-		cmdArgs = append(cmdArgs, "--chroma-lightness")
-		cmdArgs = append(cmdArgs, "--shrink-gamut", "1.1")
-		cmdArgs = append(cmdArgs, "--saturation-scale", "1.0")
-		cmdArgs = append(cmdArgs, "--clip-error")
-		cmdArgs = append(cmdArgs, "--auto-enhance")
-		cmdArgs = append(cmdArgs, "--dea-weight", "0.95")
-		cmdArgs = append(cmdArgs, "--pal-auto-expand", "2.0")
-		cmdArgs = append(cmdArgs, "--inflate-color-space", "jzazbz")
-		cmdArgs = append(cmdArgs, "--pal-str", po.Dither.MeasuredPalette)
-		// Hull is the nine inks themselves. The tool otherwise falls back to
-		// widening the hull with magenta and cyan, which the nine-ink panel does
-		// not need; passing the dither palette here leaves it no extras to add.
-		cmdArgs = append(cmdArgs, "--map-pal-str", po.Dither.MeasuredPalette)
-		cmdArgs = append(cmdArgs, "--out-pal-str", opts07OutPalette)
 		cmdArgs = append(cmdArgs, "--swap-yellow-prob", fmt.Sprintf("%0.2f", po.Dither.SwapYellowProb))
 	case po.Dither.OptionsSetCam16:
 		cmdArgs = append(cmdArgs, "--cam16")
