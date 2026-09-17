@@ -283,7 +283,9 @@ func shellOutDither(inFile string, po *options.ProcessingOptions) error {
 		cmdArgs = append(cmdArgs, "--pal-auto-expand", "2.0")
 		cmdArgs = append(cmdArgs, "--inflate-color-space", "jzazbz")
 		cmdArgs = append(cmdArgs, "--pal-str", po.Dither.MeasuredPalette)
-	case po.Dither.OptionsSet06:
+	// opts07 is opts06 over a nine ink palette: the dither tool reads the extra
+	// inks straight off --pal-str, so the option set is the same.
+	case po.Dither.OptionsSet06, po.Dither.OptionsSet07:
 		cmdArgs = append(cmdArgs, "--jzazbz")
 		cmdArgs = append(cmdArgs, "--hull-project")
 		cmdArgs = append(cmdArgs, "--chroma-lightness")

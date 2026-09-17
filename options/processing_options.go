@@ -87,6 +87,7 @@ type DitherOptions struct {
 	OptionsSet04      bool
 	OptionsSet05      bool
 	OptionsSet06      bool
+	OptionsSet07      bool
 	OptionsSetCam16   bool
 	OptionsSetHpminde bool
 	OptionsSetScam    bool
@@ -740,6 +741,11 @@ func applyPixelateOption(po *ProcessingOptions, args []string) error {
 	return nil
 }
 
+// The 9 colors the 10" panel measures, each as name:L:a:b. The six Spectra
+// colors are r, g, bl, y, w and bk; the rest are or (orange), br (brownish 2)
+// and y2 (softer yellow 2).
+const opts07PaletteTokens = 9 * 4
+
 func applyDitherOption(po *ProcessingOptions, args []string) error {
 	switch args[0] {
 	case "fs":
@@ -816,6 +822,22 @@ func applyDitherOption(po *ProcessingOptions, args []string) error {
 				po.Dither.MeasuredPalette = strings.Join(args[idx+2:idx+26], ":")
 				po.Dither.OptionsSet06 = true
 				idx += 25
+			case "opts07":
+				// as opts06, but carrying the 9 color palette measured on the 10" panel. ex:
+				// opts07:0.65:bk:12.79:5.21:-12.53:y:63.41:-12.92:68.53:bl:28.63:5.38:-39.49:r:26.32:38.07:26.51:g:30.21:-22:5.54:w:66.16:-3.5:-1.98:or:36.06:36.04:36.13:br:46.37:21.06:46.76:y2:68.07:-13.74:39.3
+				if len(args) < idx+2+opts07PaletteTokens {
+					return fmt.Errorf("opts07 requires %d params got %d: %s", idx+2+opts07PaletteTokens, len(args), args[0])
+				}
+				swapYellowProbStr := args[idx+1]
+				floatSwapYellowProb, err := strconv.ParseFloat(swapYellowProbStr, 64)
+				if err != nil || math.IsNaN(floatSwapYellowProb) || math.IsInf(floatSwapYellowProb, 0) {
+					return fmt.Errorf("Invalid swap yellow probability: %s", swapYellowProbStr)
+				}
+
+				po.Dither.SwapYellowProb = floatSwapYellowProb
+				po.Dither.MeasuredPalette = strings.Join(args[idx+2:idx+2+opts07PaletteTokens], ":")
+				po.Dither.OptionsSet07 = true
+				idx += 1 + opts07PaletteTokens
 			case "optscam16":
 				po.Dither.OptionsSetCam16 = true
 			case "optshpminde":

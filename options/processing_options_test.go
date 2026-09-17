@@ -597,6 +597,58 @@ func (s *ProcessingOptionsTestSuite) TestParseBase64URLOnlyPresets() {
 	require.Equal(s.T(), originURL, imageURL)
 }
 
+const nineColorPalette = "bk:12.79:5.21:-12.53:y:63.41:-12.92:68.53:bl:28.63:5.38:-39.49:" +
+	"r:26.32:38.07:26.51:g:30.21:-22:5.54:w:66.16:-3.5:-1.98:" +
+	"or:36.06:36.04:36.13:br:46.37:21.06:46.76:y2:68.07:-13.74:39.3"
+
+const sixColorPalette = "bk:8.88:9.08:-12.38:y:60.02:-10.87:64.97:w:61.55:-3.11:-0.93:" +
+	"bl:26.91:3.06:-34.11:r:23.76:38.93:28.27:g:31:-18.73:9.4"
+
+func (s *ProcessingOptionsTestSuite) TestParseDitherOpts07() {
+	originURL := "http://images.dev/lorem/ipsum.jpg"
+	path := fmt.Sprintf("/dither:fs:opts07:0.65:%s/plain/%s", nineColorPalette, originURL)
+	po, imageURL, err := ParsePath(path, make(http.Header))
+
+	require.Nil(s.T(), err)
+	require.Equal(s.T(), originURL, imageURL)
+	require.True(s.T(), po.Dither.OptionsSet07)
+	require.False(s.T(), po.Dither.OptionsSet06)
+	require.Equal(s.T(), 0.65, po.Dither.SwapYellowProb)
+	require.Equal(s.T(), nineColorPalette, po.Dither.MeasuredPalette)
+}
+
+func (s *ProcessingOptionsTestSuite) TestParseDitherOpts07WithTrailingOption() {
+	originURL := "http://images.dev/lorem/ipsum.jpg"
+	// applyDitherOption's loop never visits the last argument, so co is there to
+	// give sp a position the loop actually reaches
+	path := fmt.Sprintf("/dither:fs:opts07:0.65:%s:sp:co/plain/%s", nineColorPalette, originURL)
+	po, _, err := ParsePath(path, make(http.Header))
+
+	require.Nil(s.T(), err)
+	require.True(s.T(), po.Dither.OptionsSet07)
+	require.Equal(s.T(), nineColorPalette, po.Dither.MeasuredPalette)
+	require.True(s.T(), po.Dither.SoftProof, "the palette must not swallow the option after it")
+}
+
+func (s *ProcessingOptionsTestSuite) TestParseDitherOpts07RejectsSixColorPalette() {
+	originURL := "http://images.dev/lorem/ipsum.jpg"
+	path := fmt.Sprintf("/dither:fs:opts07:0.65:%s/plain/%s", sixColorPalette, originURL)
+	_, _, err := ParsePath(path, make(http.Header))
+
+	require.Error(s.T(), err, "opts07 carries 9 colors; a 6 color palette belongs in opts06")
+}
+
+func (s *ProcessingOptionsTestSuite) TestParseDitherOpts06StillTakesSixColors() {
+	originURL := "http://images.dev/lorem/ipsum.jpg"
+	path := fmt.Sprintf("/dither:fs:opts06:0.65:%s/plain/%s", sixColorPalette, originURL)
+	po, _, err := ParsePath(path, make(http.Header))
+
+	require.Nil(s.T(), err)
+	require.True(s.T(), po.Dither.OptionsSet06)
+	require.False(s.T(), po.Dither.OptionsSet07)
+	require.Equal(s.T(), sixColorPalette, po.Dither.MeasuredPalette)
+}
+
 func TestProcessingOptions(t *testing.T) {
 	suite.Run(t, new(ProcessingOptionsTestSuite))
 }
