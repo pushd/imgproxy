@@ -1,4 +1,4 @@
-ARG BASE_IMAGE_VERSION="v3.14.0"
+ARG BASE_IMAGE_VERSION="v4.1.5"
 
 FROM ghcr.io/imgproxy/imgproxy-base:${BASE_IMAGE_VERSION} AS build
 
@@ -43,8 +43,11 @@ RUN git clone --depth 1 --branch v1.21.2 https://github.com/strukturag/libheif.g
 # ==================================================================================================
 # Final image
 
-# should match imgproxy-base image base w/ proper python version
-FROM python:3.11-slim-bullseye
+# Python 3.11 to match the compiled extension the dither plugin ships. This is no
+# longer the same distro as imgproxy-base, which moved to Ubuntu; the binary built
+# there runs here anyway. Bullseye is not an option: its package pool has been
+# pruned, so apt can resolve versions it can no longer download.
+FROM python:3.11-slim-bookworm
 LABEL maintainer="Sergey Alexandrovich <darthsim@gmail.com>"
 
 RUN apt-get update \
@@ -86,8 +89,12 @@ RUN pip3 install git+https://github.com/pushd/pyamg.git@v5.2.0_with_pinned_scm -
 
 COPY plugins/pushd-dither /opt/pushd-dither/
 
+# numpy.distutils needs the stdlib distutils, which setuptools otherwise shadows
+# with a vendored copy that dropped msvccompiler. Only works while the plugin is on
+# Python 3.11; 3.12 removed stdlib distutils, so setup.py has to move off
+# numpy.distutils before then.
 RUN cd /opt/pushd-dither \
-    && python3 -m pip install -e . --break-system-packages --target=/usr/local/lib/python3.11/
+    && SETUPTOOLS_USE_DISTUTILS=stdlib python3 -m pip install -e . --break-system-packages --target=/usr/local/lib/python3.11/
 
 # decompress LUTs
 RUN cd /opt/pushd-dither/lut_dither \
