@@ -19,6 +19,11 @@ func dither(pctx *pipelineContext, img *vips.Image, po *options.ProcessingOption
 		return nil
 	}
 
+	// the dithered image comes back without alpha and has to embed into img below
+	if err := img.Flatten(po.Background.Color); err != nil {
+		return err
+	}
+
 	// If the frame scales the image itself after dithering the artifacts will look terrible.
 	// For ResizeFit we may add black bars around the dithered image further down
 	// For ResizeFill we Mimic the CENTER_CROP resizing behavior prior to dithering
