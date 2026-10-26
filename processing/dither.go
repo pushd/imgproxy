@@ -288,9 +288,7 @@ func shellOutDither(inFile string, po *options.ProcessingOptions) error {
 		cmdArgs = append(cmdArgs, "--pal-auto-expand", "2.0")
 		cmdArgs = append(cmdArgs, "--inflate-color-space", "jzazbz")
 		cmdArgs = append(cmdArgs, "--pal-str", po.Dither.MeasuredPalette)
-	// opts07 is opts06 over a nine ink palette: the dither tool reads the extra
-	// inks straight off --pal-str, so the option set is the same.
-	case po.Dither.OptionsSet06, po.Dither.OptionsSet07:
+	case po.Dither.OptionsSet06:
 		cmdArgs = append(cmdArgs, "--jzazbz")
 		cmdArgs = append(cmdArgs, "--hull-project")
 		cmdArgs = append(cmdArgs, "--chroma-lightness")
@@ -303,6 +301,30 @@ func shellOutDither(inFile string, po *options.ProcessingOptions) error {
 		cmdArgs = append(cmdArgs, "--inflate-color-space", "jzazbz")
 		cmdArgs = append(cmdArgs, "--pal-str", po.Dither.MeasuredPalette)
 		cmdArgs = append(cmdArgs, "--swap-yellow-prob", fmt.Sprintf("%0.2f", po.Dither.SwapYellowProb))
+	case po.Dither.OptionsSet07:
+		// opts06 over the nine ink palette, plus recipe B's new-ink settings from
+		// pushd-dither docs/NEW_INK_CALIBRATION.md
+		cmdArgs = append(cmdArgs, "--jzazbz")
+		cmdArgs = append(cmdArgs, "--hull-project")
+		cmdArgs = append(cmdArgs, "--chroma-lightness")
+		cmdArgs = append(cmdArgs, "--shrink-gamut", "1.1")
+		cmdArgs = append(cmdArgs, "--saturation-scale", "1.0")
+		cmdArgs = append(cmdArgs, "--clip-error")
+		cmdArgs = append(cmdArgs, "--auto-enhance")
+		cmdArgs = append(cmdArgs, "--dea-weight", "0.95")
+		cmdArgs = append(cmdArgs, "--pal-auto-expand", "2.0")
+		cmdArgs = append(cmdArgs, "--inflate-color-space", "jzazbz")
+		cmdArgs = append(cmdArgs, "--pal-str", po.Dither.MeasuredPalette)
+		cmdArgs = append(cmdArgs, "--swap-yellow-prob", fmt.Sprintf("%0.2f", po.Dither.SwapYellowProb))
+		cmdArgs = append(cmdArgs, "--hull-base-only")
+		cmdArgs = append(cmdArgs, "--swap-base-only")
+		cmdArgs = append(cmdArgs, "--new-ink-shift=2.640,16.153,32.895;11.892,-13.534,5.241;5.691,0.196,25.830")
+		cmdArgs = append(cmdArgs, "--new-ink-weight", "10,55,25,30,85,40,20261021,0.125")
+		cmdArgs = append(cmdArgs, "--new-ink-weight-inv", "10,88,20,72,100,12")
+		cmdArgs = append(cmdArgs, "--safe-bonus", "10,10,10")
+		cmdArgs = append(cmdArgs, "--pix-pen", "20,60,20,50,12;8,0,8,0,4,0,-8,0,-8")
+		cmdArgs = append(cmdArgs, "--blend-aware", "docs/blend_tables/pairs_10in_pooled.json")
+		cmdArgs = append(cmdArgs, "--blend-aware-scale", "0.25")
 	case po.Dither.OptionsSetCam16:
 		cmdArgs = append(cmdArgs, "--cam16")
 		cmdArgs = append(cmdArgs, "--chroma-lightness")
