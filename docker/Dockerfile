@@ -63,6 +63,7 @@ RUN apt-get update \
     media-types \
     libjemalloc2 \
     libtcmalloc-minimal4 \
+    libx265-199 \
   && ln -s /usr/lib/$(uname -m)-linux-gnu/libjemalloc.so.2 /usr/local/lib/libjemalloc.so \
   && ln -s /usr/lib/$(uname -m)-linux-gnu/libtcmalloc_minimal.so.4 /usr/local/lib/libtcmalloc_minimal.so \
   && rm -rf /var/lib/apt/lists/*
