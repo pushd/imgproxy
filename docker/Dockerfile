@@ -2,9 +2,6 @@ ARG BASE_IMAGE_VERSION="v4.1.9"
 
 FROM ghcr.io/imgproxy/imgproxy-base:${BASE_IMAGE_VERSION} AS build
 
-ARG BUILDPLATFORM
-ARG TARGETPLATFORM
-
 COPY . .
 RUN docker/build.sh
 
