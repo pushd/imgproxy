@@ -302,7 +302,7 @@ func shellOutDither(inFile string, po *options.ProcessingOptions) error {
 		cmdArgs = append(cmdArgs, "--pal-str", po.Dither.MeasuredPalette)
 		cmdArgs = append(cmdArgs, "--swap-yellow-prob", fmt.Sprintf("%0.2f", po.Dither.SwapYellowProb))
 	case po.Dither.OptionsSet07:
-		// opts06 over the nine ink palette, plus recipe B's new-ink settings from
+		// opts06 over the nine ink palette, plus recipe gG5's new-ink settings from
 		// pushd-dither docs/NEW_INK_CALIBRATION.md
 		cmdArgs = append(cmdArgs, "--jzazbz")
 		cmdArgs = append(cmdArgs, "--hull-project")
@@ -323,6 +323,7 @@ func shellOutDither(inFile string, po *options.ProcessingOptions) error {
 		cmdArgs = append(cmdArgs, "--new-ink-weight-inv", "10,88,20,72,100,12")
 		cmdArgs = append(cmdArgs, "--safe-bonus", "10,10,10")
 		cmdArgs = append(cmdArgs, "--pix-pen", "20,60,20,50,12;8,0,8,0,4,0,-8,0,-8")
+		cmdArgs = append(cmdArgs, "--pix-pen2", "5,65,20,4,6;0,5,0,0,0,0,0,0,0")
 		cmdArgs = append(cmdArgs, "--blend-aware", "docs/blend_tables/pairs_10in_pooled.json")
 		cmdArgs = append(cmdArgs, "--blend-aware-scale", "0.25")
 	case po.Dither.OptionsSetCam16:
