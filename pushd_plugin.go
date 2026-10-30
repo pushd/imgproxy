@@ -153,6 +153,10 @@ func beforeResponse(imageData []byte, cachePath string, contentType string) chan
 	return uploaded
 }
 
+func setRenderETag(rw http.ResponseWriter, imageData []byte) {
+	rw.Header().Set("ETag", fmt.Sprintf(`"%x"`, md5.Sum(imageData)))
+}
+
 func isValidUUID(u string) bool {
 	_, err := uuid.Parse(u)
 	return err == nil
