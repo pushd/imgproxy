@@ -118,6 +118,9 @@ func createMD5Hash(data []byte) string {
 }
 
 func uploadToS3(data []byte, s3Key string, contentType string, uploaded chan bool) {
+	success := false
+	defer func() { uploaded <- success }()
+
 	md5Hash := createMD5Hash(data)
 	log.Infof("Uploading rendered image to: %s with md5 hash: %s content-type: %s", s3Key, md5Hash, contentType)
 	awsSession, err := session.NewSession()
@@ -144,11 +147,11 @@ func uploadToS3(data []byte, s3Key string, contentType string, uploaded chan boo
 		return
 	}
 	log.Infof("Upload complete for: %s", s3Key)
-	uploaded <- true
+	success = true
 }
 
 func beforeResponse(imageData []byte, cachePath string, contentType string) chan bool {
-	uploaded := make(chan bool)
+	uploaded := make(chan bool, 1)
 	go uploadToS3(imageData, cachePath, contentType, uploaded)
 	return uploaded
 }
