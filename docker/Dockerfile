@@ -9,13 +9,13 @@ RUN docker/build.sh
 
 # Install x265 build dependency
 RUN apt-get update && apt-get install -y \
-    ninja-build cmake git curl libx265-dev nasm pkg-config
+    ninja-build cmake git libx265-dev nasm pkg-config
 
 # Rebuild libheif with x265 instead of kvazaar. RPATH points to /opt/imgproxy/lib so libheif
 # loads the base image's libde265 1.0.16 instead of bullseye's 1.0.11 (which miscolors 10-bit).
-RUN git clone --depth 1 --branch v1.21.2 https://github.com/strukturag/libheif.git /tmp/libheif \
+# The base image's own libheif.so.1.23.x is removed so only this build is left.
+RUN git clone --depth 1 --branch v1.23.7 https://github.com/strukturag/libheif.git /tmp/libheif \
     && cd /tmp/libheif \
-    && curl -Ls https://github.com/DarthSim/libheif/commit/d63ec62d93ab1420c8cf76378af2a806aeb5292d.patch | git apply \
     && mkdir _build && cd _build \
     && PKG_CONFIG_PATH=/opt/imgproxy/lib/pkgconfig CFLAGS="-O3" CXXFLAGS="-O3" cmake \
         -G"Ninja" \
@@ -35,6 +35,7 @@ RUN git clone --depth 1 --branch v1.21.2 https://github.com/strukturag/libheif.g
         -DWITH_AOM_ENCODER=0 \
         .. \
     && ninja install/strip \
+    && find /opt/imgproxy/lib -maxdepth 1 -name 'libheif.so.1.*' ! -name 'libheif.so.1.23.7' -delete \
     && rm -rf /tmp/libheif
 
 # ==================================================================================================
