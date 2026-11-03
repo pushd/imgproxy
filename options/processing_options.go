@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -88,11 +89,13 @@ type DitherOptions struct {
 	OptionsSet05      bool
 	OptionsSet06      bool
 	OptionsSet07      bool
+	OptionsSet08      bool
 	OptionsSetCam16   bool
 	OptionsSetHpminde bool
 	OptionsSetScam    bool
 	OptionsSetVendor  bool
 	MeasuredPalette   string
+	BlendLot          string // opts08: film lot code, selects pushd-dither docs/lot_charts/<BlendLot>.json
 	SwapYellowProb    float64
 }
 
@@ -746,6 +749,10 @@ func applyPixelateOption(po *ProcessingOptions, args []string) error {
 // and y2 (softer yellow 2).
 const opts07PaletteTokens = 9 * 4
 
+// A film lot code as printed in the panel QR (e.g. SPR0RU for MP-1). It names a
+// file under pushd-dither docs/lot_charts, so nothing else is accepted.
+var blendLotRe = regexp.MustCompile(`^SPR[0-9A-Z]{3}$`)
+
 func applyDitherOption(po *ProcessingOptions, args []string) error {
 	switch args[0] {
 	case "fs":
@@ -838,6 +845,27 @@ func applyDitherOption(po *ProcessingOptions, args []string) error {
 				po.Dither.MeasuredPalette = strings.Join(args[idx+2:idx+2+opts07PaletteTokens], ":")
 				po.Dither.OptionsSet07 = true
 				idx += 1 + opts07PaletteTokens
+			case "opts08":
+				// recipe c75: opts07 plus the panel's film-lot blend chart (pushd-dither
+				// docs/BLEND_CHART.md). ex: opts08:0.65:SPR0RU:<the nine color palette as in opts07>
+				if len(args) < idx+3+opts07PaletteTokens {
+					return fmt.Errorf("opts08 requires %d params got %d: %s", idx+3+opts07PaletteTokens, len(args), args[0])
+				}
+				swapYellowProbStr := args[idx+1]
+				floatSwapYellowProb, err := strconv.ParseFloat(swapYellowProbStr, 64)
+				if err != nil || math.IsNaN(floatSwapYellowProb) || math.IsInf(floatSwapYellowProb, 0) {
+					return fmt.Errorf("Invalid swap yellow probability: %s", swapYellowProbStr)
+				}
+				lot := args[idx+2]
+				if !blendLotRe.MatchString(lot) {
+					return fmt.Errorf("Invalid film lot: %s", lot)
+				}
+
+				po.Dither.SwapYellowProb = floatSwapYellowProb
+				po.Dither.BlendLot = lot
+				po.Dither.MeasuredPalette = strings.Join(args[idx+3:idx+3+opts07PaletteTokens], ":")
+				po.Dither.OptionsSet08 = true
+				idx += 2 + opts07PaletteTokens
 			case "optscam16":
 				po.Dither.OptionsSetCam16 = true
 			case "optshpminde":

@@ -301,7 +301,7 @@ func shellOutDither(inFile string, po *options.ProcessingOptions) error {
 		cmdArgs = append(cmdArgs, "--inflate-color-space", "jzazbz")
 		cmdArgs = append(cmdArgs, "--pal-str", po.Dither.MeasuredPalette)
 		cmdArgs = append(cmdArgs, "--swap-yellow-prob", fmt.Sprintf("%0.2f", po.Dither.SwapYellowProb))
-	case po.Dither.OptionsSet07:
+	case po.Dither.OptionsSet07, po.Dither.OptionsSet08:
 		// opts06 over the nine ink palette, plus recipe gG5's new-ink settings from
 		// pushd-dither docs/NEW_INK_CALIBRATION.md
 		cmdArgs = append(cmdArgs, "--jzazbz")
@@ -326,6 +326,12 @@ func shellOutDither(inFile string, po *options.ProcessingOptions) error {
 		cmdArgs = append(cmdArgs, "--pix-pen2", "5,65,20,4,6;0,5,0,0,0,0,0,0,0")
 		cmdArgs = append(cmdArgs, "--blend-aware", "docs/blend_tables/pairs_10in_pooled.json")
 		cmdArgs = append(cmdArgs, "--blend-aware-scale", "0.25")
+		if po.Dither.OptionsSet08 {
+			// recipe c75: the film lot's factory blend chart at 0.75 (pushd-dither
+			// docs/BLEND_CHART.md). A chart within the gate leaves the render unchanged.
+			cmdArgs = append(cmdArgs, "--blend-chart", "docs/lot_charts/"+po.Dither.BlendLot+".json")
+			cmdArgs = append(cmdArgs, "--blend-chart-scale", "0.75")
+		}
 	case po.Dither.OptionsSetCam16:
 		cmdArgs = append(cmdArgs, "--cam16")
 		cmdArgs = append(cmdArgs, "--chroma-lightness")
