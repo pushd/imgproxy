@@ -649,6 +649,49 @@ func (s *ProcessingOptionsTestSuite) TestParseDitherOpts06StillTakesSixColors() 
 	require.Equal(s.T(), sixColorPalette, po.Dither.MeasuredPalette)
 }
 
+func (s *ProcessingOptionsTestSuite) TestParseDitherOpts08() {
+	originURL := "http://images.dev/lorem/ipsum.jpg"
+	path := fmt.Sprintf("/dither:fs:opts08:0.65:SPR0RU:%s/plain/%s", nineColorPalette, originURL)
+	po, imageURL, err := ParsePath(path, make(http.Header))
+
+	require.Nil(s.T(), err)
+	require.Equal(s.T(), originURL, imageURL)
+	require.True(s.T(), po.Dither.OptionsSet08)
+	require.False(s.T(), po.Dither.OptionsSet07)
+	require.Equal(s.T(), 0.65, po.Dither.SwapYellowProb)
+	require.Equal(s.T(), "SPR0RU", po.Dither.BlendLot)
+	require.Equal(s.T(), nineColorPalette, po.Dither.MeasuredPalette)
+}
+
+func (s *ProcessingOptionsTestSuite) TestParseDitherOpts08WithTrailingOption() {
+	originURL := "http://images.dev/lorem/ipsum.jpg"
+	path := fmt.Sprintf("/dither:fs:opts08:0.65:SPR0RU:%s:sp:co/plain/%s", nineColorPalette, originURL)
+	po, _, err := ParsePath(path, make(http.Header))
+
+	require.Nil(s.T(), err)
+	require.True(s.T(), po.Dither.OptionsSet08)
+	require.Equal(s.T(), nineColorPalette, po.Dither.MeasuredPalette)
+	require.True(s.T(), po.Dither.SoftProof, "the palette must not swallow the option after it")
+}
+
+func (s *ProcessingOptionsTestSuite) TestParseDitherOpts08RejectsBadLot() {
+	originURL := "http://images.dev/lorem/ipsum.jpg"
+	for _, lot := range []string{"MP-1", "../x", "spr0ru", "SPR0RU1", "bk"} {
+		path := fmt.Sprintf("/dither:fs:opts08:0.65:%s:%s/plain/%s", lot, nineColorPalette, originURL)
+		_, _, err := ParsePath(path, make(http.Header))
+		require.Error(s.T(), err, "lot %q must be rejected: it names a chart file", lot)
+	}
+}
+
+func (s *ProcessingOptionsTestSuite) TestParseDitherOpts08RequiresLot() {
+	originURL := "http://images.dev/lorem/ipsum.jpg"
+	// an opts07-shaped string under opts08 has no lot token
+	path := fmt.Sprintf("/dither:fs:opts08:0.65:%s/plain/%s", nineColorPalette, originURL)
+	_, _, err := ParsePath(path, make(http.Header))
+
+	require.Error(s.T(), err)
+}
+
 func TestProcessingOptions(t *testing.T) {
 	suite.Run(t, new(ProcessingOptionsTestSuite))
 }
