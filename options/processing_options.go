@@ -90,12 +90,14 @@ type DitherOptions struct {
 	OptionsSet06      bool
 	OptionsSet07      bool
 	OptionsSet08      bool
+	OptionsSet09      bool
 	OptionsSetCam16   bool
 	OptionsSetHpminde bool
 	OptionsSetScam    bool
 	OptionsSetVendor  bool
 	MeasuredPalette   string
 	BlendLot          string // opts08: film lot code, selects pushd-dither docs/lot_charts/<BlendLot>.json
+	BlendChart        string // opts09: the panel's own 16-patch chart, name:L:a:b x16, for pushd-dither --blend-chart-str
 	SwapYellowProb    float64
 }
 
@@ -753,6 +755,42 @@ const opts07PaletteTokens = 9 * 4
 // file under pushd-dither docs/lot_charts, so nothing else is accepted.
 var blendLotRe = regexp.MustCompile(`^SPR[0-9A-Z]{3}$`)
 
+// opts09 carries the panel's own 16-patch chart reading: the 9 solids and the 7
+// 50/50 blends, each as name:L:a:b in any order (pushd-dither --blend-chart-str).
+var blendChartPatches = []string{"W", "K", "R", "G", "B", "Y", "O", "S2", "B2", "RW", "GR", "KG", "WY", "BR", "B2W", "RY"}
+
+const blendChartTokens = 16 * 4
+
+// parseBlendChart checks a chart reading token by token: every patch exactly once,
+// each Lab a finite number, so only well-formed values reach the dither command.
+func parseBlendChart(tokens []string) (string, error) {
+	if len(tokens) != blendChartTokens {
+		return "", fmt.Errorf("blend chart needs %d tokens got %d", blendChartTokens, len(tokens))
+	}
+	want := make(map[string]bool, len(blendChartPatches))
+	for _, p := range blendChartPatches {
+		want[p] = true
+	}
+	seen := make(map[string]bool, len(blendChartPatches))
+	for i := 0; i < len(tokens); i += 4 {
+		name := tokens[i]
+		if !want[name] {
+			return "", fmt.Errorf("Invalid blend chart patch: %s", name)
+		}
+		if seen[name] {
+			return "", fmt.Errorf("Blend chart patch given twice: %s", name)
+		}
+		seen[name] = true
+		for _, v := range tokens[i+1 : i+4] {
+			f, err := strconv.ParseFloat(v, 64)
+			if err != nil || math.IsNaN(f) || math.IsInf(f, 0) {
+				return "", fmt.Errorf("Invalid blend chart value for %s: %s", name, v)
+			}
+		}
+	}
+	return strings.Join(tokens, ":"), nil
+}
+
 func applyDitherOption(po *ProcessingOptions, args []string) error {
 	switch args[0] {
 	case "fs":
@@ -866,6 +904,29 @@ func applyDitherOption(po *ProcessingOptions, args []string) error {
 				po.Dither.MeasuredPalette = strings.Join(args[idx+3:idx+3+opts07PaletteTokens], ":")
 				po.Dither.OptionsSet08 = true
 				idx += 2 + opts07PaletteTokens
+			case "opts09":
+				// recipe c75 per panel: opts07 plus the panel's own 16-patch factory chart
+				// (pushd-dither docs/BLEND_CHART.md, --blend-chart-str). ex:
+				// opts09:0.65:<the nine color palette as in opts07>:W:62.21:-3.65:-0.52:K:12.71:8.85:-16.31:...:RW:49.05:4.19:9.01:...
+				if len(args) < idx+2+opts07PaletteTokens+blendChartTokens {
+					return fmt.Errorf("opts09 requires %d params got %d: %s", idx+2+opts07PaletteTokens+blendChartTokens, len(args), args[0])
+				}
+				swapYellowProbStr := args[idx+1]
+				floatSwapYellowProb, err := strconv.ParseFloat(swapYellowProbStr, 64)
+				if err != nil || math.IsNaN(floatSwapYellowProb) || math.IsInf(floatSwapYellowProb, 0) {
+					return fmt.Errorf("Invalid swap yellow probability: %s", swapYellowProbStr)
+				}
+				chartStart := idx + 2 + opts07PaletteTokens
+				chart, err := parseBlendChart(args[chartStart : chartStart+blendChartTokens])
+				if err != nil {
+					return err
+				}
+
+				po.Dither.SwapYellowProb = floatSwapYellowProb
+				po.Dither.MeasuredPalette = strings.Join(args[idx+2:chartStart], ":")
+				po.Dither.BlendChart = chart
+				po.Dither.OptionsSet09 = true
+				idx += 1 + opts07PaletteTokens + blendChartTokens
 			case "optscam16":
 				po.Dither.OptionsSetCam16 = true
 			case "optshpminde":

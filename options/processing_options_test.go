@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -687,6 +688,66 @@ func (s *ProcessingOptionsTestSuite) TestParseDitherOpts08RequiresLot() {
 	originURL := "http://images.dev/lorem/ipsum.jpg"
 	// an opts07-shaped string under opts08 has no lot token
 	path := fmt.Sprintf("/dither:fs:opts08:0.65:%s/plain/%s", nineColorPalette, originURL)
+	_, _, err := ParsePath(path, make(http.Header))
+
+	require.Error(s.T(), err)
+}
+
+// M16-30002510's own fx41 chart (i1 M1 D65), as pushd-web sends it
+const panelChart = "G:31.01:-19.92:4.46:O:36.46:29.75:33.68:R:26.54:39.05:26.03:S2:62.72:-12.68:34.76:" +
+	"B2W:56.26:-2.57:13.15:W:62.21:-3.65:-0.52:RW:49.05:4.19:9.01:B:30.65:5.86:-41.14:BR:32.41:7.02:-16.47:" +
+	"KG:28.43:-4.91:-3.25:K:12.71:8.85:-16.31:Y:59.8:-12.26:63.3:WY:61.53:-9.21:23.44:RY:49.41:1.87:50.17:" +
+	"B2:45.01:16.62:43.93:GR:29.56:2.4:12.9"
+
+func (s *ProcessingOptionsTestSuite) TestParseDitherOpts09() {
+	originURL := "http://images.dev/lorem/ipsum.jpg"
+	path := fmt.Sprintf("/dither:fs:opts09:0.65:%s:%s/plain/%s", nineColorPalette, panelChart, originURL)
+	po, imageURL, err := ParsePath(path, make(http.Header))
+
+	require.Nil(s.T(), err)
+	require.Equal(s.T(), originURL, imageURL)
+	require.True(s.T(), po.Dither.OptionsSet09)
+	require.False(s.T(), po.Dither.OptionsSet08)
+	require.False(s.T(), po.Dither.OptionsSet07)
+	require.Equal(s.T(), 0.65, po.Dither.SwapYellowProb)
+	require.Equal(s.T(), nineColorPalette, po.Dither.MeasuredPalette)
+	require.Equal(s.T(), panelChart, po.Dither.BlendChart)
+	require.Equal(s.T(), "", po.Dither.BlendLot)
+}
+
+func (s *ProcessingOptionsTestSuite) TestParseDitherOpts09WithTrailingOption() {
+	originURL := "http://images.dev/lorem/ipsum.jpg"
+	path := fmt.Sprintf("/dither:fs:opts09:0.65:%s:%s:sp:co/plain/%s", nineColorPalette, panelChart, originURL)
+	po, _, err := ParsePath(path, make(http.Header))
+
+	require.Nil(s.T(), err)
+	require.True(s.T(), po.Dither.OptionsSet09)
+	require.Equal(s.T(), nineColorPalette, po.Dither.MeasuredPalette)
+	require.Equal(s.T(), panelChart, po.Dither.BlendChart)
+	require.True(s.T(), po.Dither.SoftProof, "the chart must not swallow the option after it")
+}
+
+func (s *ProcessingOptionsTestSuite) TestParseDitherOpts09RejectsBadCharts() {
+	originURL := "http://images.dev/lorem/ipsum.jpg"
+	bad := []string{
+		strings.Replace(panelChart, "RW:", "R+W:", 1),            // '+' form is not accepted in URLs
+		strings.Replace(panelChart, "KG:", "QQ:", 1),             // unknown patch
+		strings.Replace(panelChart, "GR:", "RW:", 1),             // patch twice (and GR missing)
+		strings.Replace(panelChart, "W:62.21:", "W:nan:", 1),     // not a finite number
+		strings.Replace(panelChart, "K:12.71:", "K:12.71x:", 1),  // not a number
+		strings.Replace(panelChart, ":GR:29.56:2.4:12.9", "", 1), // only 15 patches
+	}
+	for _, chart := range bad {
+		path := fmt.Sprintf("/dither:fs:opts09:0.65:%s:%s/plain/%s", nineColorPalette, chart, originURL)
+		_, _, err := ParsePath(path, make(http.Header))
+		require.Error(s.T(), err, chart)
+	}
+}
+
+func (s *ProcessingOptionsTestSuite) TestParseDitherOpts09RequiresChart() {
+	originURL := "http://images.dev/lorem/ipsum.jpg"
+	// an opts07-shaped string under opts09 has no chart
+	path := fmt.Sprintf("/dither:fs:opts09:0.65:%s/plain/%s", nineColorPalette, originURL)
 	_, _, err := ParsePath(path, make(http.Header))
 
 	require.Error(s.T(), err)
