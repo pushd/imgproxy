@@ -753,6 +753,62 @@ func (s *ProcessingOptionsTestSuite) TestParseDitherOpts09RequiresChart() {
 	require.Error(s.T(), err)
 }
 
+// A 13" panel's own fixture chart (chart13_factory16fx, i1 M1 D65), as pushd-web sends it
+const panelChart13 = "GR:27.73:3.26:14.96:RY:42.56:6.98:42.64:GY:51.68:-15.96:47.17:W:62.31:-3.33:-0.69:WY:60.71:-8.34:24.69:" +
+	"R:22.67:35.29:22.97:BR:25.98:13.63:-10.36:B:30.82:2.46:-35.72:GB:34.89:-12.8:-9.92:RW:48.35:5.92:10.85:" +
+	"GW:52.79:-11.72:14.45:Y:60.4:-11.65:64.32:K:9.97:8.03:-13.43:RK:17.85:19.75:3.39:KG:27.71:-9.67:-0.47:" +
+	"G:33.91:-23:12.13"
+
+func (s *ProcessingOptionsTestSuite) TestParseDitherOpts10() {
+	originURL := "http://images.dev/lorem/ipsum.jpg"
+	path := fmt.Sprintf("/dither:fs:opts10:0.65:%s:%s/plain/%s", sixColorPalette, panelChart13, originURL)
+	po, imageURL, err := ParsePath(path, make(http.Header))
+
+	require.Nil(s.T(), err)
+	require.Equal(s.T(), originURL, imageURL)
+	require.True(s.T(), po.Dither.OptionsSet10)
+	require.False(s.T(), po.Dither.OptionsSet06)
+	require.False(s.T(), po.Dither.OptionsSet09)
+	require.Equal(s.T(), 0.65, po.Dither.SwapYellowProb)
+	require.Equal(s.T(), sixColorPalette, po.Dither.MeasuredPalette)
+	require.Equal(s.T(), panelChart13, po.Dither.BlendChart)
+}
+
+func (s *ProcessingOptionsTestSuite) TestParseDitherOpts10WithTrailingOption() {
+	originURL := "http://images.dev/lorem/ipsum.jpg"
+	path := fmt.Sprintf("/dither:fs:opts10:0.65:%s:%s:sp:co/plain/%s", sixColorPalette, panelChart13, originURL)
+	po, _, err := ParsePath(path, make(http.Header))
+
+	require.Nil(s.T(), err)
+	require.True(s.T(), po.Dither.OptionsSet10)
+	require.Equal(s.T(), panelChart13, po.Dither.BlendChart)
+	require.True(s.T(), po.Dither.SoftProof, "the chart must not swallow the option after it")
+}
+
+func (s *ProcessingOptionsTestSuite) TestParseDitherOpts10RejectsBadCharts() {
+	originURL := "http://images.dev/lorem/ipsum.jpg"
+	bad := []string{
+		panelChart, // a 10" chart (9 solids, 10" blends)
+		strings.Replace(panelChart13, "GW:", "QQ:", 1),             // unknown patch
+		strings.Replace(panelChart13, "GR:", "RW:", 1),             // patch twice (and GR missing)
+		strings.Replace(panelChart13, "W:62.31:", "W:inf:", 1),     // not a finite number
+		strings.Replace(panelChart13, ":G:33.91:-23:12.13", "", 1), // only 15 patches
+	}
+	for _, chart := range bad {
+		path := fmt.Sprintf("/dither:fs:opts10:0.65:%s:%s/plain/%s", sixColorPalette, chart, originURL)
+		_, _, err := ParsePath(path, make(http.Header))
+		require.Error(s.T(), err, chart)
+	}
+}
+
+func (s *ProcessingOptionsTestSuite) TestParseDitherOpts10RequiresChart() {
+	originURL := "http://images.dev/lorem/ipsum.jpg"
+	path := fmt.Sprintf("/dither:fs:opts10:0.65:%s/plain/%s", sixColorPalette, originURL)
+	_, _, err := ParsePath(path, make(http.Header))
+
+	require.Error(s.T(), err)
+}
+
 func TestProcessingOptions(t *testing.T) {
 	suite.Run(t, new(ProcessingOptionsTestSuite))
 }
