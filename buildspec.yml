@@ -1,0 +1,15 @@
+version: 0.2
+
+phases:
+
+  pre_build:
+    commands:
+      - echo "Logging into Amazon ECR"
+      - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin 452499883540.dkr.ecr.$AWS_REGION.amazonaws.com
+      - echo "Logging into DockerHub"
+      - docker login --username $DOCKER_HUB_USERNAME --password $DOCKER_HUB_PASSWORD
+
+  build:
+    commands:
+      - echo "Building imgproxy started on $(date)"
+      - ./pushd_build.sh
