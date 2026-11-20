@@ -15,7 +15,7 @@ phases:
       - git submodule init
 
       - echo "Configure submodule to pull with http"
-      - git config submodule.plugins/pushd-dither.url "https://github/com/pushd/pushd-dither.git"
+      - git config submodule.plugins/pushd-dither.url "https://github.com/pushd/pushd-dither.git"
 
       - echo "Fetch submodule source"
       - git submodule update
