@@ -1,0 +1,24 @@
+version: 0.2
+
+phases:
+
+  pre_build:
+    commands:
+      - echo "Logging into Amazon ECR"
+      - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin 452499883540.dkr.ecr.$AWS_REGION.amazonaws.com
+      - echo "Logging into DockerHub"
+      - docker login --username $DOCKER_HUB_USERNAME --password $DOCKER_HUB_PASSWORD
+
+  build:
+    commands:
+      - echo "init submodules to add to git config"
+      - git submodule init
+
+      - echo "Configure submodule to pull with http"
+      - git config submodule.plugins/pushd-dither.url "https://github.com/pushd/pushd-dither.git"
+
+      - echo "Fetch submodule source"
+      - git submodule update
+
+      - echo "Building imgproxy started on $(date)"
+      - ./pushd_build.sh
