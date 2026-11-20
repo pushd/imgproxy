@@ -1,3 +1,7 @@
+# Aura's Fork
+
+Find information about how to build and deploy imgproxy at Aura in [Notion](https://app.notion.com/p/pushd/HOWTO-Deploy-a-new-version-of-imgproxy-3428ff3a891d8069ab01fe26c18c6af4?source=copy_link)
+
 <p align="center">
   <a href="https://imgproxy.net">
     <picture>

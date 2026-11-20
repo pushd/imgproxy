@@ -288,7 +288,7 @@ func shellOutDither(inFile string, po *options.ProcessingOptions) error {
 		cmdArgs = append(cmdArgs, "--pal-auto-expand", "2.0")
 		cmdArgs = append(cmdArgs, "--inflate-color-space", "jzazbz")
 		cmdArgs = append(cmdArgs, "--pal-str", po.Dither.MeasuredPalette)
-	case po.Dither.OptionsSet06:
+	case po.Dither.OptionsSet06, po.Dither.OptionsSet10:
 		cmdArgs = append(cmdArgs, "--jzazbz")
 		cmdArgs = append(cmdArgs, "--hull-project")
 		cmdArgs = append(cmdArgs, "--chroma-lightness")
@@ -301,7 +301,13 @@ func shellOutDither(inFile string, po *options.ProcessingOptions) error {
 		cmdArgs = append(cmdArgs, "--inflate-color-space", "jzazbz")
 		cmdArgs = append(cmdArgs, "--pal-str", po.Dither.MeasuredPalette)
 		cmdArgs = append(cmdArgs, "--swap-yellow-prob", fmt.Sprintf("%0.2f", po.Dither.SwapYellowProb))
-	case po.Dither.OptionsSet07, po.Dither.OptionsSet08:
+		if po.Dither.OptionsSet10 {
+			// 13" per panel: the pooled 13" blend table with the pairs the panel's own fixture
+			// chart measures replaced by its readings (pushd-dither docs/BLEND_CHART.md), scale 1.
+			cmdArgs = append(cmdArgs, "--blend-aware", "docs/blend_tables/pairs_13in_pooled.json")
+			cmdArgs = append(cmdArgs, "--blend-chart13-str", po.Dither.BlendChart)
+		}
+	case po.Dither.OptionsSet07, po.Dither.OptionsSet08, po.Dither.OptionsSet09:
 		// opts06 over the nine ink palette, plus recipe gG5's new-ink settings from
 		// pushd-dither docs/NEW_INK_CALIBRATION.md
 		cmdArgs = append(cmdArgs, "--jzazbz")
@@ -330,6 +336,13 @@ func shellOutDither(inFile string, po *options.ProcessingOptions) error {
 			// recipe c75: the film lot's factory blend chart at 0.75 (pushd-dither
 			// docs/BLEND_CHART.md). A chart within the gate leaves the render unchanged.
 			cmdArgs = append(cmdArgs, "--blend-chart", "docs/lot_charts/"+po.Dither.BlendLot+".json")
+			cmdArgs = append(cmdArgs, "--blend-chart-scale", "0.75")
+		}
+		if po.Dither.OptionsSet09 {
+			// recipe c75 per panel: the panel's own 16-patch factory chart at 0.75
+			// (pushd-dither docs/BLEND_CHART.md). A chart within the gate leaves the
+			// render unchanged.
+			cmdArgs = append(cmdArgs, "--blend-chart-str", po.Dither.BlendChart)
 			cmdArgs = append(cmdArgs, "--blend-chart-scale", "0.75")
 		}
 	case po.Dither.OptionsSetCam16:
